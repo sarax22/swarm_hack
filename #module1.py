@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from astar import astar
 
 image = cv2.imread('test_course.png')
 arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
@@ -97,16 +98,28 @@ for cnt in contours:
     #         grid[cy, cx] = 1
 
 
-
+bots = {}
 for i, (corner, marker_id) in enumerate(zip(corners, ids)):
         # corners[i] shape: (1, 4, 2) → squeeze to (4, 2)
         pts = corner.reshape((4, 2))
+
+
 
         print(marker_id)
         cx = int((pts[0][0] + pts[2][0]) / 2)
         cy = int((pts[0][1] + pts[2][1]) / 2)
 
         print(cx,cy)
+
+        bots[marker_id[0]] = (cx,cy)
+
+print(bots)
+
+start = (13,65)
+goal = (77,55)
+
+
+path = astar(grid, start, goal)
 
 
 cv2.imshow("ArUco Detection Check", output_image)
@@ -120,4 +133,17 @@ plt.title("Contour-Based 10×10 Occupancy Grid")
 plt.xlabel("Chunk X")
 plt.ylabel("Chunk Y")
 plt.grid(color='lightgray', linestyle='--', linewidth=0.3)
+plt.show()
+
+
+display_grid = grid.copy()
+if path != None:
+    for (y, x) in path:
+        display_grid[y][x] = 2   # mark path cells
+else:
+    print("aaaaaaaaaaaaaaaaa")
+
+plt.figure(figsize=(10,6))
+plt.imshow(display_grid, cmap="viridis", interpolation="nearest")
+plt.title("A* Path on Occupancy Grid")
 plt.show()
