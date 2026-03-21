@@ -49,10 +49,33 @@ def process_frame(frame):
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         _, threshold = cv2.threshold(img, 110, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        HEIGHT, WIDTH = threshold.shape  # use your actual image size
+        CHUNK = 10
+
+        CHUNK_H = HEIGHT // CHUNK
+        CHUNK_W = WIDTH // CHUNK
+
+        grid = np.zeros((CHUNK_H, CHUNK_W), dtype=int)
+
+
         for cnt in contours:
+            # print("\n\n\n")
+            # print(cnt)
+            # print("\n\n\n")
             # Approximate and draw contour
             approx = cv2.approxPolyDP(cnt, 0.009 * cv2.arcLength(cnt, True), True)
             cv2.drawContours(frame, [approx], 0, (0, 0, 255), 5)
+            
+            mask = np.zeros_like(threshold)
+            cv2.drawContours(mask, contours, -1, 255, 1)   # thickness=1 → single-pixel contour lines
+
+            # ---- 2. For each pixel in mask that is white (part of a line), mark its chunk ----
+            ys, xs = np.where(mask == 255)
+
+            for x, y in zip(xs, ys):
+                cx = min(x // CHUNK, CHUNK_W - 1)
+                cy = min(y // CHUNK, CHUNK_H - 1)
+                grid[cy, cx] = 1
 
 
     return frame, bot_states
