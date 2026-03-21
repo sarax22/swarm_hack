@@ -188,18 +188,35 @@ def process_frame(frame):
 #             break
 
 
-cv2.destroyAllWindows()
+# cv2.destroyAllWindows()
 
+cap = cv2.VideoCapture(0)
+
+# Load calibration once
+with np.load('camera_params.npz') as data:
+    mtx, dist = data['mtx'], data['dist']
+    dist = dist * 0.6
+
+h, w = None, None
+newcameramtx, roi = None, None
 
 while True:
-    ret, frame = setup_camera()
-
+    ret, frame = cap.read()
     if not ret:
         break
 
-    cv2.imshow("Live Webcam Feed", frame)
+    # Compute undistortion params once on first frame
+    if h is None:
+        h, w = frame.shape[:2]
+        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
 
-    frame, bot_states, grid, path1, path2, path3 = process_frame(frame)
+    undistorted = cv2.undistort(frame, mtx, dist, None, newcameramtx)
+    x, y, rw, rh = roi
+    undistorted = undistorted[y:y+rh, x:x+rw]
+
+    cv2.imshow("Live Webcam Feed", undistorted)
+
+    # frame, bot_states, grid, path1, path2, path3 = process_frame(frame)
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
         break
