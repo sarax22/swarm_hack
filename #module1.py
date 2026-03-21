@@ -64,13 +64,29 @@ if ids is not None:
 
 marker_centers = list(bots.values())
 
-font = cv2.FONT_HERSHEY_COMPLEX
-img = cv2.cvtColor(output_image, cv2.COLOR_BGR2GRAY)
-_, threshold = cv2.threshold(img, 110, 255, cv2.THRESH_BINARY)
-contours, _ = cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+# --- Detect red regions ---
+hsv = cv2.cvtColor(output_image, cv2.COLOR_BGR2HSV)
+
+lower_red1 = np.array([0, 150, 80])
+upper_red1 = np.array([10, 255, 255])
+lower_red2 = np.array([170, 150, 80])
+upper_red2 = np.array([180, 255, 255])
+
+mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+red_mask = mask1 | mask2
+
+# ---- EDGE detection instead of grayscale threshold ----
+edges = cv2.Canny(red_mask, 50, 150)
+
+cv2.imshow("EDGE MASK", edges)
+cv2.waitKey(0)
+
+# ---- Contours from edges ----
+contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
 
-HEIGHT, WIDTH = threshold.shape  # use your actual image size
+HEIGHT, WIDTH = edges.shape  # use your actual image size
 CHUNK = 10
 
 CHUNK_H = HEIGHT // CHUNK
@@ -79,28 +95,35 @@ CHUNK_W = WIDTH // CHUNK
 grid = np.zeros((CHUNK_H, CHUNK_W), dtype=int)
 
 max_y, max_x, _ = output_image.shape
-mask = np.zeros_like(threshold)
+mask = np.zeros_like(edges)
 
+
+cv2.imshow("RED MASK", red_mask)
+cv2.waitKey(0)
+
+
+# Draw only red contours
 for cnt in contours:
-    # Approximate and draw contour
     approx = cv2.approxPolyDP(cnt, 0.009 * cv2.arcLength(cnt, True), True)
-    cv2.drawContours(output_image, [approx], 0, (0, 0, 255), 5)
-    cv2.drawContours(mask, contours, -1, 255, 1)   # thickness=1 → single-pixel contour lines
 
-    EXCLUDE_RADIUS = 60
-    
-    for (mx, my) in marker_centers:
-        cv2.circle(mask, (mx, my), EXCLUDE_RADIUS, 0, -1)
-        cv2.rectangle(mask, (0,my+10), (max_x, my-10),0, -1)
+    # draw on the output-visible image
+    cv2.drawContours(output_image, [approx], -1, (0, 0, 255), 5)
 
+    # draw ONLY this contour on mask
+    cv2.drawContours(mask, [cnt], -1, 255, 1)
 
-    # ---- 2. For each pixel in mask that is white (part of a line), mark its chunk ----
-    ys, xs = np.where(mask == 255)
+# Exclude ArUco areas (run ONCE)
+EXCLUDE_RADIUS = 60
+for (mx, my) in marker_centers:
+    cv2.circle(mask, (mx, my), EXCLUDE_RADIUS, 0, -1)
 
-    for x, y in zip(xs, ys):
-        cx = min(x // CHUNK, CHUNK_W - 1)
-        cy = min(y // CHUNK, CHUNK_H - 1)
-        grid[cy, cx] = 1
+# Build occupancy grid (run ONCE)
+ys, xs = np.where(mask == 255)
+
+for x, y in zip(xs, ys):
+    cx = min(x // CHUNK, CHUNK_W - 1)
+    cy = min(y // CHUNK, CHUNK_H - 1)
+    grid[cy, cx] = 1
 
 
 
