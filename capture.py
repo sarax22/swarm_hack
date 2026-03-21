@@ -2,12 +2,14 @@ import cv2
 import numpy as np
 
 def setup_camera():
-    cap = cv2.VideoCapture("rtsp://10.206.157.80:8554/hack")
+    cap = cv2.VideoCapture(0)
     
     # Load calibration data
     with np.load('camera_params.npz') as data:
         mtx, dist = data['mtx'], data['dist']
-    
+        dist = dist * 0.6   # ← ADD THIS LINE. Try 0.1, 0.2, 0.3, 0.5
+
+
     while True:
         ret, frame = cap.read()
         if not ret:
