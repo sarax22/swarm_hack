@@ -87,7 +87,7 @@ contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
 
 
 HEIGHT, WIDTH = edges.shape  # use your actual image size
-CHUNK = 10
+CHUNK = 5
 
 CHUNK_H = HEIGHT // CHUNK
 CHUNK_W = WIDTH // CHUNK
@@ -157,10 +157,10 @@ kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (inflate_radius*2+1, infla
 inflated = cv2.dilate(grid_img, kernel)
 inflated_grid = (inflated > 0).astype(int)
 
-start1 = (bots[4][1]//10,bots[4][0]//10)
-start2 = (bots[2][1]//10,bots[2][0]//10)
-start3 = (bots[3][1]//10,bots[3][0]//10)
-goal = (bots[7][1]//10,bots[7][0]//10)
+start1 = (bots[4][1]//CHUNK,bots[4][0]//CHUNK)
+start2 = (bots[2][1]//CHUNK,bots[2][0]//CHUNK)
+start3 = (bots[3][1]//CHUNK,bots[3][0]//CHUNK)
+goal = (bots[7][1]//CHUNK,bots[7][0]//CHUNK)
 
 
 path1 = astar(inflated_grid, start1, goal)
