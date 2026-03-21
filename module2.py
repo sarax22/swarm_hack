@@ -10,6 +10,14 @@ from capture import setup_camera
 DICT_TYPE = cv2.aruco.DICT_4X4_50
 arucoDict = cv2.aruco.getPredefinedDictionary(DICT_TYPE)
 arucoParams = cv2.aruco.DetectorParameters()
+arucoParams.adaptiveThreshWinSizeMin = 3
+arucoParams.adaptiveThreshWinSizeMax = 23
+arucoParams.adaptiveThreshWinSizeStep = 10
+arucoParams.adaptiveThreshConstant = 7
+arucoParams.minMarkerPerimeterRate = 0.02  # lower = detect smaller markers
+arucoParams.maxMarkerPerimeterRate = 4.0
+arucoParams.polygonalApproxAccuracyRate = 0.03
+arucoParams.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
 detector = cv2.aruco.ArucoDetector(arucoDict, arucoParams)
 
 # Map marker IDs to bot names (agree this with other teams!)
@@ -40,7 +48,7 @@ def process_frame(frame):
     bot_states = {}  # id -> {center, heading}
 
     if ids is not None:
-        cv2.aruco.drawDetectedMarkers(frame, corners, ids)
+        # cv2.aruco.drawDetectedMarkers(frame, corners, ids)
         for i, marker_id in enumerate(ids.flatten()):
             cx, cy  = get_marker_center(corners[i])
             heading = get_marker_heading(corners[i])
@@ -222,7 +230,7 @@ while True:
         break
 
     if key == ord(' '):
-        proc_frame, bot_states, grid, path1, path2, path3 = process_frame(frame.copy())
+        proc_frame, bot_states, grid, path1, path2, path3 = process_frame(undistorted.copy())
 
 
         display_grid = grid.copy()
