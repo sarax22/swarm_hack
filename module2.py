@@ -193,35 +193,47 @@ cv2.destroyAllWindows()
 
 while True:
     ret, frame = setup_camera()
+
     if not ret:
         break
 
+    cv2.imshow("Live Webcam Feed", frame)
+
     frame, bot_states, grid, path1, path2, path3 = process_frame(frame)
-
-    display_grid = grid.copy()
-    if path1 != None:
-        for (y, x) in path1:
-            display_grid[y][x] = 2   # mark path cells
-
-    if path2 != None:
-        for (y, x) in path2:
-            display_grid[y][x] = 3   # mark path cells
-
-    if path3 != None:
-        for (y, x) in path3:
-            display_grid[y][x] = 4   # mark path cells
-
-    plt.figure(figsize=(10,6))
-    plt.imshow(display_grid, cmap="viridis", interpolation="nearest")
-    plt.title("A* Path on Occupancy Grid")
-    plt.show()
-
-    # Print state for debugging / sending to bots
-    # for mid, state in bot_states.items():
-    #     print(f"  ID {mid}: center={state['center']}, heading={state['heading']:.1f}°")
-
-    cv2.imshow("Arena Camera - ArUco Tracking", frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
         break
+
+    if key == ord(' '):
+        proc_frame, bot_states, grid, path1, path2, path3 = process_frame(frame.copy())
+
+
+        display_grid = grid.copy()
+        if path1 != None:
+            for (y, x) in path1:
+                display_grid[y][x] = 2   # mark path cells
+
+        if path2 != None:
+            for (y, x) in path2:
+                display_grid[y][x] = 3   # mark path cells
+
+        if path3 != None:
+            for (y, x) in path3:
+                display_grid[y][x] = 4   # mark path cells
+
+        cv2.imshow("Processed Frame", proc_frame)
+
+        plt.figure(figsize=(10,6))
+        plt.imshow(display_grid, cmap="viridis", interpolation="nearest")
+        plt.title("A* Path on Occupancy Grid")
+        plt.show()
+
+        # Print state for debugging / sending to bots
+        # for mid, state in bot_states.items():
+        #     print(f"  ID {mid}: center={state['center']}, heading={state['heading']:.1f}°")
+
+        # cv2.imshow("Arena Camera - ArUco Tracking", frame)
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     break
 
 cv2.destroyAllWindows()
