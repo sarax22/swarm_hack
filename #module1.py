@@ -38,6 +38,7 @@ else:
 
 output_image = image.copy()
 
+bots = {}
 if ids is not None:
     cv2.aruco.drawDetectedMarkers(output_image, corners, ids)
 
@@ -45,6 +46,9 @@ if ids is not None:
         pts = corner.reshape((4, 2))
         cx = int((pts[0][0] + pts[2][0]) / 2)
         cy = int((pts[0][1] + pts[2][1]) / 2)
+
+        bots[marker_id[0]] = (cx,cy)
+
 
         # Draw center point
         cv2.circle(output_image, (cx, cy), 5, (0, 255, 0), -1)
@@ -57,6 +61,8 @@ if ids is not None:
         #     cv2.FONT_HERSHEY_SIMPLEX,
         #     0.5, (0, 0, 255), 2
         # )
+
+marker_centers = list(bots.values())
 
 font = cv2.FONT_HERSHEY_COMPLEX
 img = cv2.cvtColor(output_image, cv2.COLOR_BGR2GRAY)
@@ -72,14 +78,21 @@ CHUNK_W = WIDTH // CHUNK
 
 grid = np.zeros((CHUNK_H, CHUNK_W), dtype=int)
 
+max_y, max_x, _ = output_image.shape
+mask = np.zeros_like(threshold)
 
 for cnt in contours:
     # Approximate and draw contour
     approx = cv2.approxPolyDP(cnt, 0.009 * cv2.arcLength(cnt, True), True)
     cv2.drawContours(output_image, [approx], 0, (0, 0, 255), 5)
-    
-    mask = np.zeros_like(threshold)
     cv2.drawContours(mask, contours, -1, 255, 1)   # thickness=1 → single-pixel contour lines
+
+    EXCLUDE_RADIUS = 60
+    
+    for (mx, my) in marker_centers:
+        cv2.circle(mask, (mx, my), EXCLUDE_RADIUS, 0, -1)
+        cv2.rectangle(mask, (0,my+10), (max_x, my-10),0, -1)
+
 
     # ---- 2. For each pixel in mask that is white (part of a line), mark its chunk ----
     ys, xs = np.where(mask == 255)
@@ -115,11 +128,21 @@ for i, (corner, marker_id) in enumerate(zip(corners, ids)):
 
 print(bots)
 
-start = (13,65)
-goal = (77,55)
+inflate_radius = 3 
+grid_img = (grid.astype(np.uint8)) * 255
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (inflate_radius*2+1, inflate_radius*2+1))
+inflated = cv2.dilate(grid_img, kernel)
+inflated_grid = (inflated > 0).astype(int)
+
+start1 = (bots[4][1]//10,bots[4][0]//10)
+start2 = (bots[2][1]//10,bots[2][0]//10)
+start3 = (bots[3][1]//10,bots[3][0]//10)
+goal = (bots[7][1]//10,bots[7][0]//10)
 
 
-path = astar(grid, start, goal)
+path1 = astar(inflated_grid, start1, goal)
+path2 = astar(inflated_grid, start2, goal)
+path3 = astar(inflated_grid, start3, goal)
 
 
 cv2.imshow("ArUco Detection Check", output_image)
@@ -137,12 +160,24 @@ plt.show()
 
 
 display_grid = grid.copy()
-if path != None:
-    for (y, x) in path:
+if path1 != None:
+    for (y, x) in path1:
         display_grid[y][x] = 2   # mark path cells
 else:
     print("aaaaaaaaaaaaaaaaa")
 
+if path2 != None:
+    for (y, x) in path2:
+        display_grid[y][x] = 3   # mark path cells
+
+if path3 != None:
+    for (y, x) in path3:
+        display_grid[y][x] = 4   # mark path cells
+
+print("1",path1)
+print("2",path2)
+print("3",path3)
+print(goal)
 plt.figure(figsize=(10,6))
 plt.imshow(display_grid, cmap="viridis", interpolation="nearest")
 plt.title("A* Path on Occupancy Grid")
