@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import matplotlib as plt
 
 image = cv2.imread('test_course.png')
 arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
@@ -60,24 +61,25 @@ font = cv2.FONT_HERSHEY_COMPLEX
 img = cv2.cvtColor(output_image, cv2.COLOR_BGR2GRAY)
 _, threshold = cv2.threshold(img, 110, 255, cv2.THRESH_BINARY)
 contours, _ = cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-print(contours)
+
+grid_size = 10  # each cell = 10x10 pixels
+
+h, w = threshold.shape
+grid_h = h // grid_size
+grid_w = w // grid_size
+
+grid = np.zeros((grid_h, grid_w), dtype=int)
+
 for cnt in contours:
     # Approximate and draw contour
     approx = cv2.approxPolyDP(cnt, 0.009 * cv2.arcLength(cnt, True), True)
     cv2.drawContours(output_image, [approx], 0, (0, 0, 255), 5)
+    mask = np.zeros_like(threshold)
 
-    # Flatten points
-    n = approx.ravel()
-    i = 0
-    for j in n:
-        if i % 2 == 0:  # x, y coords
-            x, y = n[i], n[i + 1]
-            coord = f"{x} {y}"
-            if i == 0:  # first point
-                cv2.putText(output_image, "Arrow tip", (x, y), font, 0.5, (255, 0, 0))
-            else:
-                cv2.putText(output_image, coord, (x, y), font, 0.5, (0, 255, 0))
-        i += 1
+    print(cnt[0])
+
+print(grid)
+
 
 cv2.imshow("ArUco Detection Check", output_image)
 cv2.waitKey(0)

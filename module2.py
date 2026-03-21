@@ -54,18 +54,6 @@ def process_frame(frame):
             approx = cv2.approxPolyDP(cnt, 0.009 * cv2.arcLength(cnt, True), True)
             cv2.drawContours(frame, [approx], 0, (0, 0, 255), 5)
 
-            # Flatten points
-            n = approx.ravel()
-            i = 0
-            for j in n:
-                if i % 2 == 0:  # x, y coords
-                    x, y = n[i], n[i + 1]
-                    coord = f"{x} {y}"
-                    if i == 0:  # first point
-                        cv2.putText(frame, "Arrow tip", (x, y), font, 0.5, (255, 0, 0))
-                    else:
-                        cv2.putText(frame, coord, (x, y), font, 0.5, (0, 255, 0))
-                i += 1
 
     return frame, bot_states
 
@@ -80,8 +68,8 @@ while True:
     frame, bot_states = process_frame(frame)
 
     # Print state for debugging / sending to bots
-    for mid, state in bot_states.items():
-        print(f"  ID {mid}: center={state['center']}, heading={state['heading']:.1f}°")
+    # for mid, state in bot_states.items():
+    #     print(f"  ID {mid}: center={state['center']}, heading={state['heading']:.1f}°")
 
     cv2.imshow("Arena Camera - ArUco Tracking", frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
