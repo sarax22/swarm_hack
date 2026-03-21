@@ -1,7 +1,7 @@
 import cv2 as cv
 import numpy as np
 
-image = cv.imread('aruco_4x4_grid_0to9.png')
+image = cv.imread('test_course.png')
 arucoDict = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
 arucoParams = cv.aruco.DetectorParameters()
 detector = cv.aruco.ArucoDetector(arucoDict, arucoParams)
@@ -48,14 +48,17 @@ if ids is not None:
         cv.circle(output_image, (cx, cy), 5, (0, 255, 0), -1)
 
         # Label center coordinates
-        cv.putText(
-            output_image,
-            f"ID{marker_id[0]} ({cx},{cy})",
-            (cx + 8, cy - 8),
-            cv.FONT_HERSHEY_SIMPLEX,
-            0.5, (0, 0, 255), 2
-        )
+        # cv.putText(
+        #     output_image,
+        #     f"ID{marker_id[0]} ({cx},{cy})",
+        #     (cx + 8, cy - 8),
+        #     cv.FONT_HERSHEY_SIMPLEX,
+        #     0.5, (0, 0, 255), 2
+        # )
 
-cv.imshow("ArUco Detection Check", output_image)
+
+blur = cv.GaussianBlur(output_image, (5, 5), 1.4)
+edges = cv.Canny(blur, threshold1=100, threshold2=200)
+cv.imshow("ArUco Detection Check", edges)
 cv.waitKey(0)
 cv.destroyAllWindows()

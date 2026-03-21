@@ -43,6 +43,8 @@ def process_frame(frame):
             label = f"{name} | {heading:.1f} deg"
             cv.putText(frame, label, (cx + 10, cy),
                        cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            blur = cv.GaussianBlur(frame, (5, 5), 1.4)
+            frame = cv.Canny(blur, threshold1=100, threshold2=200)
 
     return frame, bot_states
 
