@@ -1,11 +1,11 @@
-import cv2 as cv
+import cv2
 import numpy as np
 
 # --- Config ---
-DICT_TYPE = cv.aruco.DICT_4X4_50
-arucoDict = cv.aruco.getPredefinedDictionary(DICT_TYPE)
-arucoParams = cv.aruco.DetectorParameters()
-detector = cv.aruco.ArucoDetector(arucoDict, arucoParams)
+DICT_TYPE = cv2.aruco.DICT_4X4_50
+arucoDict = cv2.aruco.getPredefinedDictionary(DICT_TYPE)
+arucoParams = cv2.aruco.DetectorParameters()
+detector = cv2.aruco.ArucoDetector(arucoDict, arucoParams)
 
 # Map marker IDs to bot names (agree this with other teams!)
 BOT_NAMES = {0: "Bot_A", 1: "Bot_B", 2: "Bot_C"}
@@ -27,13 +27,13 @@ def get_marker_heading(corners_single):
     return angle
 
 def process_frame(frame):
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     corners, ids, _ = detector.detectMarkers(gray)
 
     bot_states = {}  # id -> {center, heading}
 
     if ids is not None:
-        cv.aruco.drawDetectedMarkers(frame, corners, ids)
+        cv2.aruco.drawDetectedMarkers(frame, corners, ids)
         for i, marker_id in enumerate(ids.flatten()):
             cx, cy  = get_marker_center(corners[i])
             heading = get_marker_heading(corners[i])
@@ -41,15 +41,36 @@ def process_frame(frame):
 
             name = BOT_NAMES.get(marker_id, f"ID {marker_id}")
             label = f"{name} | {heading:.1f} deg"
-            cv.putText(frame, label, (cx + 10, cy),
-                       cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            blur = cv.GaussianBlur(frame, (5, 5), 1.4)
-            frame = cv.Canny(blur, threshold1=100, threshold2=200)
+            cv2.putText(frame, label, (cx + 10, cy),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+
+        font = cv2.FONT_HERSHEY_COMPLEX
+        img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        _, threshold = cv2.threshold(img, 110, 255, cv2.THRESH_BINARY)
+        contours, _ = cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+            # Approximate and draw contour
+            approx = cv2.approxPolyDP(cnt, 0.009 * cv2.arcLength(cnt, True), True)
+            cv2.drawContours(frame, [approx], 0, (0, 0, 255), 5)
+
+            # Flatten points
+            n = approx.ravel()
+            i = 0
+            for j in n:
+                if i % 2 == 0:  # x, y coords
+                    x, y = n[i], n[i + 1]
+                    coord = f"{x} {y}"
+                    if i == 0:  # first point
+                        cv2.putText(frame, "Arrow tip", (x, y), font, 0.5, (255, 0, 0))
+                    else:
+                        cv2.putText(frame, coord, (x, y), font, 0.5, (0, 255, 0))
+                i += 1
 
     return frame, bot_states
 
 # --- Run on camera feed ---
-cap = cv.VideoCapture(0)  # change index if arena camera is on a different port
+cap = cv2.VideoCapture(0)  # change index if arena camera is on a different port
 
 while True:
     ret, frame = cap.read()
@@ -62,9 +83,9 @@ while True:
     for mid, state in bot_states.items():
         print(f"  ID {mid}: center={state['center']}, heading={state['heading']:.1f}°")
 
-    cv.imshow("Arena Camera - ArUco Tracking", frame)
-    if cv.waitKey(1) & 0xFF == ord('q'):
+    cv2.imshow("Arena Camera - ArUco Tracking", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 cap.release()
-cv.destroyAllWindows()
+cv2.destroyAllWindows()

@@ -1,10 +1,10 @@
-import cv2 as cv
+import cv2
 import numpy as np
 
-image = cv.imread('test_course.png')
-arucoDict = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
-arucoParams = cv.aruco.DetectorParameters()
-detector = cv.aruco.ArucoDetector(arucoDict, arucoParams)
+image = cv2.imread('test_course.png')
+arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+arucoParams = cv2.aruco.DetectorParameters()
+detector = cv2.aruco.ArucoDetector(arucoDict, arucoParams)
 (corners, ids, rejected) = detector.detectMarkers(image)
 
 if ids is not None:
@@ -37,7 +37,7 @@ else:
 output_image = image.copy()
 
 if ids is not None:
-    cv.aruco.drawDetectedMarkers(output_image, corners, ids)
+    cv2.aruco.drawDetectedMarkers(output_image, corners, ids)
 
     for i, (corner, marker_id) in enumerate(zip(corners, ids)):
         pts = corner.reshape((4, 2))
@@ -45,20 +45,40 @@ if ids is not None:
         cy = int((pts[0][1] + pts[2][1]) / 2)
 
         # Draw center point
-        cv.circle(output_image, (cx, cy), 5, (0, 255, 0), -1)
+        cv2.circle(output_image, (cx, cy), 5, (0, 255, 0), -1)
 
         # Label center coordinates
-        # cv.putText(
+        # cv2.putText(
         #     output_image,
         #     f"ID{marker_id[0]} ({cx},{cy})",
         #     (cx + 8, cy - 8),
-        #     cv.FONT_HERSHEY_SIMPLEX,
+        #     cv2.FONT_HERSHEY_SIMPLEX,
         #     0.5, (0, 0, 255), 2
         # )
 
+font = cv2.FONT_HERSHEY_COMPLEX
+img = cv2.cvtColor(output_image, cv2.COLOR_BGR2GRAY)
+_, threshold = cv2.threshold(img, 110, 255, cv2.THRESH_BINARY)
+contours, _ = cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+print(contours)
+for cnt in contours:
+    # Approximate and draw contour
+    approx = cv2.approxPolyDP(cnt, 0.009 * cv2.arcLength(cnt, True), True)
+    cv2.drawContours(output_image, [approx], 0, (0, 0, 255), 5)
 
-blur = cv.GaussianBlur(output_image, (5, 5), 1.4)
-edges = cv.Canny(blur, threshold1=100, threshold2=200)
-cv.imshow("ArUco Detection Check", edges)
-cv.waitKey(0)
-cv.destroyAllWindows()
+    # Flatten points
+    n = approx.ravel()
+    i = 0
+    for j in n:
+        if i % 2 == 0:  # x, y coords
+            x, y = n[i], n[i + 1]
+            coord = f"{x} {y}"
+            if i == 0:  # first point
+                cv2.putText(output_image, "Arrow tip", (x, y), font, 0.5, (255, 0, 0))
+            else:
+                cv2.putText(output_image, coord, (x, y), font, 0.5, (0, 255, 0))
+        i += 1
+
+cv2.imshow("ArUco Detection Check", output_image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
