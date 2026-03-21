@@ -186,8 +186,6 @@ display_grid = grid.copy()
 if path1 != None:
     for (y, x) in path1:
         display_grid[y][x] = 2   # mark path cells
-else:
-    print("aaaaaaaaaaaaaaaaa")
 
 if path2 != None:
     for (y, x) in path2:
