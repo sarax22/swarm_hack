@@ -335,6 +335,9 @@ while True:
         p2_commands = simplify_path(path2)
         p3_commands = simplify_path(path3)
 
+        ser = serial.Serial('/dev/ttyUSB0', 9600, timeout=2)
+        time.sleep(2)  # wait for Arduino reset
+
         print(simplify_path(path1))
         for cmd in p1_commands:
             command = ""
@@ -347,6 +350,17 @@ while True:
                 command += "a"
             
             command += str(round(abs(cmd[1])))
+
+            print(f"Sending: {command}")
+            ser.write((command + "\n").encode())
+
+            # Wait for Arduino to finish executing
+            while True:
+                resp = ser.readline().decode().strip()
+                if resp:
+                    print(f"  Arduino: {resp}")
+                if resp == "DONE":
+                    break
 
         print(command)
         print(path_to_commands(simplify_path(path1), 90, cell_size=5))
