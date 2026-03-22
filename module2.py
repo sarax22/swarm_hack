@@ -273,7 +273,7 @@ def process_frame(frame):
 
 # cv2.destroyAllWindows()
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(2)
 
 
 # Load calibration once
@@ -306,8 +306,8 @@ while True:
         break
 
     if key == ord(' '):
-        # proc_frame, bot_states, grid, path1, path2, path3 = process_frame(undistorted.copy())
-        proc_frame, bot_states, grid, path1, path2, path3 = process_frame(cv2.imread("test_course.png").copy())
+        proc_frame, bot_states, grid, path1, path2, path3 = process_frame(undistorted.copy())
+        # proc_frame, bot_states, grid, path1, path2, path3 = process_frame(cv2.imread("test_course.png").copy())
 
         display_grid = grid.copy()
         if path1 != None:
