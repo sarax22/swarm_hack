@@ -273,7 +273,7 @@ def process_frame(frame):
 
 # cv2.destroyAllWindows()
 
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(1)
 
 
 # Load calibration once

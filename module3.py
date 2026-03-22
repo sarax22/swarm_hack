@@ -337,6 +337,10 @@ def offset_path(path, bot_states, trolley_id=7, offset_px=80,
 #              FRAME PROCESSING
 # ═══════════════════════════════════════════════════
  
+# green = 0, 11
+# trolley = 19
+#  
+
 def process_frame(frame):
     grid = 0
     path1 = path2 = path3 = []
@@ -411,10 +415,10 @@ def process_frame(frame):
         inflated = cv2.dilate(grid_img, kernel)
         inflated_grid = (inflated > 0).astype(int)
  
-        start1 = (bot_states[4]["center"][1]//CHUNK, bot_states[4]["center"][0]//CHUNK)
-        start2 = (bot_states[2]["center"][1]//CHUNK, bot_states[2]["center"][0]//CHUNK)
-        start3 = (bot_states[3]["center"][1]//CHUNK, bot_states[3]["center"][0]//CHUNK)
-        goals = get_formation_goals(bot_states, trolley_id=7, offset_px=80, chunk=CHUNK)
+        # start1 = (bot_states[4]["center"][1]//CHUNK, bot_states[4]["center"][0]//CHUNK)
+        # start2 = (bot_states[2]["center"][1]//CHUNK, bot_states[2]["center"][0]//CHUNK)
+        start3 = (bot_states[9]["center"][1]//CHUNK, bot_states[3]["center"][0]//CHUNK)
+        goals = get_formation_goals(bot_states, trolley_id=19, offset_px=80, chunk=CHUNK)
         
         if goals:
             rear_goal, left_goal, right_goal = goals
@@ -424,16 +428,16 @@ def process_frame(frame):
             clear_goal_cells(inflated_grid, right_goal)
 
 
-            start1 = (bot_states[4]["center"][1]//CHUNK, bot_states[4]["center"][0]//CHUNK)
-            start2 = (bot_states[2]["center"][1]//CHUNK, bot_states[2]["center"][0]//CHUNK)
-            start3 = (bot_states[3]["center"][1]//CHUNK, bot_states[3]["center"][0]//CHUNK)
+            # start1 = (bot_states[4]["center"][1]//CHUNK, bot_states[4]["center"][0]//CHUNK)
+            # start2 = (bot_states[2]["center"][1]//CHUNK, bot_states[2]["center"][0]//CHUNK)
+            start3 = (bot_states[9]["center"][1]//CHUNK, bot_states[9]["center"][0]//CHUNK)
 
             # Bot 4 = rear pusher, Bot 2 = left, Bot 3 = right
-            path1 = astar(inflated_grid, start1, rear_goal)
-            path2 = astar(inflated_grid, start2, left_goal)
+            # path1 = astar(inflated_grid, start1, rear_goal)
+            # path2 = astar(inflated_grid, start2, left_goal)
             path3 = astar(inflated_grid, start3, right_goal)
  
-    return frame, bot_states, grid, path1, path2, path3
+    return frame, bot_states, grid, 0, 0, path3
  
  
 # ═══════════════════════════════════════════════════
@@ -451,7 +455,7 @@ if __name__ == "__main__":
         print("Running in vision-only mode (no robot control)")
  
     # --- Camera setup ---
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
  
     with np.load('camera_params.npz') as data:
         mtx, dist_coeffs = data['mtx'], data['dist']
@@ -481,21 +485,21 @@ if __name__ == "__main__":
  
         if key == ord(' '):
             # Process frame and get paths
-            proc_frame, bot_states, grid, path1, path2, path3 = process_frame(
-                cv2.imread("test_course.png").copy()
-            )
             # proc_frame, bot_states, grid, path1, path2, path3 = process_frame(
-            #     undistorted.copy()
+            #     cv2.imread("test_course.png").copy()
             # )
+            proc_frame, bot_states, grid, path1, path2, path3 = process_frame(
+                undistorted.copy()
+            )
  
             # Display grid
             display_grid = grid.copy()
-            if path1:
-                for (py, px) in path1:
-                    display_grid[py][px] = 2
-            if path2:
-                for (py, px) in path2:
-                    display_grid[py][px] = 3
+            # if path1:
+            #     for (py, px) in path1:
+            #         display_grid[py][px] = 2
+            # if path2:
+            #     for (py, px) in path2:
+            #         display_grid[py][px] = 3
             if path3:
                 for (py, px) in path3:
                     display_grid[py][px] = 4

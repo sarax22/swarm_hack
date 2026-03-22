@@ -18,9 +18,9 @@ BOTS = {
 ROBOT_PORT = 80
 
 # Marker IDs
-TROLLEY_ID = 7
-GOAL_MARKER_A = 5
-GOAL_MARKER_B = 6
+TROLLEY_ID = 19
+GOAL_MARKER_A = 19
+GOAL_MARKER_B = 19
 
 # Arena scale
 MM_PER_PIXEL = 1750 / 1920
@@ -379,6 +379,16 @@ STATE_APPROACH = 'APPROACH'
 STATE_PUSH = 'PUSH'
 STATE_DONE = 'DONE'
 
+cv2.namedWindow("HSV Tuning")
+cv2.createTrackbar("H min", "HSV Tuning", 0, 180, lambda x: None)
+cv2.createTrackbar("H max", "HSV Tuning", 10, 180, lambda x: None)
+cv2.createTrackbar("S min", "HSV Tuning", 100, 255, lambda x: None)
+cv2.createTrackbar("S max", "HSV Tuning", 255, 255, lambda x: None)
+cv2.createTrackbar("V min", "HSV Tuning", 100, 255, lambda x: None)
+cv2.createTrackbar("V max", "HSV Tuning", 255, 255, lambda x: None)
+cv2.createTrackbar("H min 2", "HSV Tuning", 170, 180, lambda x: None)
+cv2.createTrackbar("H max 2", "HSV Tuning", 180, 180, lambda x: None)
+
 if __name__ == "__main__":
 
     # --- Connect robots ---
@@ -393,7 +403,7 @@ if __name__ == "__main__":
         print("No robots connected — vision-only mode.")
 
     # --- Camera ---
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     with np.load('camera_params.npz') as data:
         mtx, dist_coeffs = data['mtx'], data['dist']
         dist_coeffs = dist_coeffs * 0.6
@@ -434,6 +444,31 @@ if __name__ == "__main__":
             cv2.circle(display, (cx, cy), 5, (0, 255, 0), -1)
             cv2.putText(display, f"{mid}|{s['heading']:.0f}",
                         (cx + 8, cy - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
+            
+
+        # --- Live HSV tuning ---
+        hsv_frame = cv2.cvtColor(undistorted, cv2.COLOR_BGR2HSV)
+
+        h1 = cv2.getTrackbarPos("H min", "HSV Tuning")
+        h2 = cv2.getTrackbarPos("H max", "HSV Tuning")
+        s1 = cv2.getTrackbarPos("S min", "HSV Tuning")
+        s2 = cv2.getTrackbarPos("S max", "HSV Tuning")
+        v1 = cv2.getTrackbarPos("V min", "HSV Tuning")
+        v2 = cv2.getTrackbarPos("V max", "HSV Tuning")
+        h1b = cv2.getTrackbarPos("H min 2", "HSV Tuning")
+        h2b = cv2.getTrackbarPos("H max 2", "HSV Tuning")
+
+        mask_a = cv2.inRange(hsv_frame, np.array([h1, s1, v1]), np.array([h2, s2, v2]))
+        mask_b = cv2.inRange(hsv_frame, np.array([h1b, s1, v1]), np.array([h2b, s2, v2]))
+        combined = mask_a | mask_b
+
+        # Show mask and overlay
+        mask_colored = cv2.cvtColor(combined, cv2.COLOR_GRAY2BGR)
+        overlay = cv2.addWeighted(undistorted, 0.7, mask_colored, 0.3, 0)
+
+        cv2.imshow("HSV Tuning", np.vstack([overlay, mask_colored]))
+
+
 
         goal_pos = get_goal_px(bot_states)
         if goal_pos:
