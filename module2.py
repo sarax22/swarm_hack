@@ -5,6 +5,8 @@ import mss
 import time
 import matplotlib.pyplot as plt
 from capture import setup_camera
+import serial
+import math
 
 # --- Config ---
 DICT_TYPE = cv2.aruco.DICT_4X4_50
@@ -39,6 +41,76 @@ def get_marker_heading(corners_single):
     angle   = np.degrees(np.arctan2(-delta[1], delta[0]))  # screen coords
     return angle
 
+def transmit_to_arduino(path):
+    ser = serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
+
+    # Send path as a series of waypoints
+    for (y, x) in path:
+        msg = f"{x},{y}\n"
+        ser.write(msg.encode())
+        # Wait for Arduino to acknowledge
+        response = ser.readline().decode().strip()
+        if response == "OK":
+            continue
+
+def simplify_path(path):
+    if len(path) < 3:
+        return path
+    simplified = [path[0]]
+    for i in range(1, len(path) - 1):
+        dy1 = path[i][0] - path[i-1][0]
+        dx1 = path[i][1] - path[i-1][1]
+        dy2 = path[i+1][0] - path[i][0]
+        dx2 = path[i+1][1] - path[i][1]
+        if (dx1, dy1) != (dx2, dy2):
+            simplified.append(path[i])
+    simplified.append(path[-1])
+    return simplified
+
+
+def path_to_commands(simplified_path, current_heading_deg, cell_size=5):
+    """
+    Convert simplified A* path to a sequence of ROTATE and MOVE commands.
+    
+    Args:
+        simplified_path: list of (row, col) waypoints from simplify_path()
+        current_heading_deg: bot's current heading in degrees from ArUco
+        cell_size: pixels per grid cell (your CHUNK value)
+    
+    Returns:
+        list of ('ROTATE', angle_deg) and ('MOVE', distance_px) tuples
+    """
+    if not simplified_path or len(simplified_path) < 2:
+        return []
+    
+    commands = []
+    heading = current_heading_deg
+    
+    for i in range(1, len(simplified_path)):
+        r0, c0 = simplified_path[i - 1]
+        r1, c1 = simplified_path[i]
+        
+        # Convert grid to pixel delta
+        dx = (c1 - c0) * cell_size
+        dy = -(r1 - r0) * cell_size  # negative because row increases downward
+        
+        # Target angle in degrees
+        target_angle = math.degrees(math.atan2(dy, dx))
+        
+        # Shortest turn
+        turn = (target_angle - heading + 180) % 360 - 180
+        
+        if abs(turn) > 1:  # dead zone to avoid tiny corrections
+            commands.append(('ROTATE', round(turn, 1)))
+        
+        # Distance in pixels
+        dist = math.sqrt(dx**2 + dy**2)
+        commands.append(('MOVE', round(dist, 1)))
+        
+        heading = target_angle
+    
+    return commands
+
 def process_frame(frame):
     grid = 0
     path1 = path2 = path3 = []
@@ -67,9 +139,9 @@ def process_frame(frame):
 
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        lower_red1 = np.array([0, 150, 80])
+        lower_red1 = np.array([0, 100, 100])
         upper_red1 = np.array([10, 255, 255])
-        lower_red2 = np.array([170, 150, 80])
+        lower_red2 = np.array([170, 100, 100])
         upper_red2 = np.array([180, 255, 255])
 
         mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
@@ -90,6 +162,7 @@ def process_frame(frame):
         CHUNK = 5
 
         CHUNK_H = HEIGHT // CHUNK
+        print("aaaaaaa", HEIGHT, WIDTH)
         CHUNK_W = WIDTH // CHUNK
 
         grid = np.zeros((CHUNK_H, CHUNK_W), dtype=int)
@@ -200,6 +273,7 @@ def process_frame(frame):
 
 cap = cv2.VideoCapture(0)
 
+
 # Load calibration once
 with np.load('camera_params.npz') as data:
     mtx, dist = data['mtx'], data['dist']
@@ -230,8 +304,8 @@ while True:
         break
 
     if key == ord(' '):
-        proc_frame, bot_states, grid, path1, path2, path3 = process_frame(undistorted.copy())
-
+        # proc_frame, bot_states, grid, path1, path2, path3 = process_frame(undistorted.copy())
+        proc_frame, bot_states, grid, path1, path2, path3 = process_frame(cv2.imread("test_course.png").copy())
 
         display_grid = grid.copy()
         if path1 != None:
@@ -245,6 +319,22 @@ while True:
         if path3 != None:
             for (y, x) in path3:
                 display_grid[y][x] = 4   # mark path cells
+
+        print(path1)
+        print()
+        print()
+        print(path2)
+        print()
+        print()
+        print(path3)
+        print()
+        print(simplify_path(path1))
+        print(simplify_path(path2))
+        print(simplify_path(path3))
+
+        print(path_to_commands(simplify_path(path1), 90, cell_size=5))
+        print(path_to_commands(simplify_path(path2), 90, cell_size=5))
+        print(path_to_commands(simplify_path(path3), 90, cell_size=5))
 
         cv2.imshow("Processed Frame", proc_frame)
 
@@ -262,3 +352,7 @@ while True:
         #     break
 
 cv2.destroyAllWindows()
+
+
+
+# proc_frame, bot_states, grid, path1, path2, path3 = process_frame(cv2.imread("test_course.png").copy())
