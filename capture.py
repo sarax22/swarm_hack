@@ -4,7 +4,7 @@ import os
 import time
 
 def setup_camera():
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(2)
 
     with np.load('camera_params.npz') as data:
         mtx, dist = data['mtx'], data['dist']
@@ -25,8 +25,10 @@ def setup_camera():
         x, y, w, h = roi
         undistorted = undistorted[y:y+h, x:x+w]
 
-        cv2.imshow('Original', frame)
-        cv2.imshow('Undistorted', undistorted)
+        # cv2.imshow('Original', frame)
+        # cv2.imshow('Undistorted', undistorted)
+
+        return ret, frame
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord(' '):

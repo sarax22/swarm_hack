@@ -68,7 +68,7 @@ def simplify_path(path):
     return simplified
 
 
-def path_to_commands(simplified_path, current_heading_deg, cell_size=5):
+def path_to_commands(simplified_path, current_heading_deg, cell_size=5, mm_per_pixel=1750/1920):
     """
     Convert simplified A* path to a sequence of ROTATE and MOVE commands.
     
@@ -76,9 +76,10 @@ def path_to_commands(simplified_path, current_heading_deg, cell_size=5):
         simplified_path: list of (row, col) waypoints from simplify_path()
         current_heading_deg: bot's current heading in degrees from ArUco
         cell_size: pixels per grid cell (your CHUNK value)
+        mm_per_pixel: physical scale (default: 1750mm arena / 1920px width)
     
     Returns:
-        list of ('ROTATE', angle_deg) and ('MOVE', distance_px) tuples
+        list of ('ROTATE', angle_deg) and ('MOVE', distance_mm) tuples
     """
     if not simplified_path or len(simplified_path) < 2:
         return []
@@ -103,9 +104,10 @@ def path_to_commands(simplified_path, current_heading_deg, cell_size=5):
         if abs(turn) > 1:  # dead zone to avoid tiny corrections
             commands.append(('ROTATE', round(turn, 1)))
         
-        # Distance in pixels
-        dist = math.sqrt(dx**2 + dy**2)
-        commands.append(('MOVE', round(dist, 1)))
+        # Distance in mm
+        dist_px = math.sqrt(dx**2 + dy**2)
+        dist_mm = dist_px * mm_per_pixel
+        commands.append(('MOVE', round(dist_mm, 1)))
         
         heading = target_angle
     
@@ -134,7 +136,7 @@ def process_frame(frame):
         marker_centers = []
         for i in list(bot_states.values()):
             marker_centers.append(i["center"])
-        print(bot_states,marker_centers)
+        # print(bot_states,marker_centers)
                     
 
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -162,7 +164,7 @@ def process_frame(frame):
         CHUNK = 5
 
         CHUNK_H = HEIGHT // CHUNK
-        print("aaaaaaa", HEIGHT, WIDTH)
+        # print("aaaaaaa", HEIGHT, WIDTH)
         CHUNK_W = WIDTH // CHUNK
 
         grid = np.zeros((CHUNK_H, CHUNK_W), dtype=int)
@@ -320,21 +322,39 @@ while True:
             for (y, x) in path3:
                 display_grid[y][x] = 4   # mark path cells
 
-        print(path1)
-        print()
-        print()
-        print(path2)
-        print()
-        print()
-        print(path3)
-        print()
-        print(simplify_path(path1))
-        print(simplify_path(path2))
-        print(simplify_path(path3))
+        # print(path1)
+        # print()
+        # print()
+        # print(path2)
+        # print()
+        # print()
+        # print(path3)
+        # print()
 
+        p1_commands = simplify_path(path1)
+        p2_commands = simplify_path(path2)
+        p3_commands = simplify_path(path3)
+
+        print(simplify_path(path1))
+        for cmd in p1_commands:
+            command = ""
+            print(cmd)
+            if cmd[0] == "MOVE":
+                command += "w"
+            elif cmd[0] == "ROTATE" and cmd[1] > 0:
+                command += "d"
+            elif cmd[0] == "ROTATE" and cmd[1] < 0:
+                command += "a"
+            
+            command += str(round(abs(cmd[1])))
+
+        print(command)
         print(path_to_commands(simplify_path(path1), 90, cell_size=5))
-        print(path_to_commands(simplify_path(path2), 90, cell_size=5))
-        print(path_to_commands(simplify_path(path3), 90, cell_size=5))
+        # print(simplify_path(path2))
+        # print(path_to_commands(simplify_path(path2), 90, cell_size=5))
+        # print(simplify_path(path3))
+        # print(path_to_commands(simplify_path(path3), 90, cell_size=5))
+
 
         cv2.imshow("Processed Frame", proc_frame)
 
