@@ -1,0 +1,240 @@
+#include "Mona_ESP_lib.h"
+#include <WiFi.h>
+#include "src/Encoder.h"
+
+// ─── WiFi credentials ───
+const char* ssid     = "iphone";
+const char* password = "ancdefgh";
+
+// ─── WiFi server on port 80 ───
+WiFiServer wifiServer(80);
+
+// ─── Encoders (GPIO34 = left, GPIO23 = right) ───
+Encoder leftEncoder(34);
+Encoder rightEncoder(23);
+
+// ─── Safety timeout for movement commands (ms) ───
+const unsigned long MOVE_TIMEOUT = 15000;
+
+// ─── Forward declarations ───
+void DriveDistance(float distance_m);
+void turnUntilAngle(int targetAngle, bool turnRight);
+
+// ═══════════════════════════════════════════════════
+//                      SETUP
+// ═══════════════════════════════════════════════════
+void setup() {
+  Mona_ESP_init();
+
+  // Red LEDs while connecting
+  Set_LED(1, 20, 0, 0);
+  Set_LED(2, 20, 0, 0);
+
+  // GPIO34 is input-only with no internal pull-up — external pull-up on PCB
+  pinMode(34, INPUT);
+  pinMode(23, INPUT_PULLUP);
+
+  attachInterrupt(digitalPinToInterrupt(34), [] { leftEncoder.update(); }, FALLING);
+  attachInterrupt(digitalPinToInterrupt(23), [] { rightEncoder.update(); }, FALLING);
+
+  Serial.begin(115200);
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print("Connecting to WiFi ");
+    Serial.print(ssid);
+    Serial.println("...");
+  }
+  Serial.println("Connected to WiFi");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+
+  wifiServer.begin();
+
+  // Green blink = ready
+  for (int i = 0; i < 2; i++) {
+    Set_LED(1, 0, 20, 0);
+    Set_LED(2, 0, 20, 0);
+    delay(500);
+    Set_LED(1, 0, 0, 0);
+    Set_LED(2, 0, 0, 0);
+    delay(500);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//                    MAIN LOOP
+// ═══════════════════════════════════════════════════
+void loop() {
+  WiFiClient client = wifiServer.available();
+
+  if (client) {
+    Serial.println("New Client Connected");
+
+    while (client.connected()) {
+      if (client.available() > 0) {
+        String request = client.readStringUntil('\n');
+        request.trim();
+
+        if (request.length() > 0) {
+          char cmd   = request.charAt(0);
+          int  value = request.substring(1).toInt();
+
+          Serial.print("CMD: ");
+          Serial.print(cmd);
+          Serial.print(" VAL: ");
+          Serial.println(value);
+
+          switch (cmd) {
+            case 'F': {
+              // value = distance in mm → convert to metres
+              float dist_m = value / 1000.0f - 0.02;
+              DriveDistance(dist_m);
+              client.println("OK");
+              break;
+            }
+            case 'B': {
+              // value = duration in ms
+              float dist_m = value / 1000.0f - 0.02;
+              DriveDistanceback(dist_m);
+              client.println("OK");
+              break;
+            }
+            case 'R': {
+              // value = angle in degrees
+              turnUntilAngle(value, true);
+              client.println("OK");
+              break;
+            }
+            case 'L': {
+              // value = angle in degrees
+              turnUntilAngle(value, false);
+              client.println("OK");
+              break;
+            }
+            case 'S': {
+              Motors_stop();
+              client.println("OK");
+              break;
+            }
+            default: {
+              client.println("ERR:UNKNOWN");
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    client.stop();
+    Serial.println("Client Disconnected");
+    Motors_stop();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//         DRIVE STRAIGHT — distance in metres
+// ═══════════════════════════════════════════════════
+//  Send "F500" → drives 500 mm (0.5 m)
+//  Send "F100" → drives 100 mm (0.1 m)
+void DriveDistance(float distance_m) {
+  leftEncoder.DistanceReset();
+  rightEncoder.DistanceReset();
+
+  float combDistance = 0.0f;
+  unsigned long startTime = millis();
+
+  Motors_forward(150);
+
+  while (combDistance < distance_m) {
+    if (millis() - startTime > MOVE_TIMEOUT) {
+      Serial.println("DriveDistance: timeout");
+      break;
+    }
+    combDistance = (leftEncoder.getDistance() + rightEncoder.getDistance()) / 2.0f;
+    delay(1);
+
+  }
+  Motors_spin_left(150);
+  delay(20);
+
+  Motors_stop();
+
+  Serial.print("Drive done — dist(m): ");
+  Serial.println(combDistance, 4);
+}
+
+void DriveDistanceback(float distance_m) {
+  leftEncoder.DistanceReset();
+  rightEncoder.DistanceReset();
+
+  float combDistance = 0.0f;
+  unsigned long startTime = millis();
+
+  Motors_backward(150);
+
+  while (combDistance < distance_m) {
+    if (millis() - startTime > MOVE_TIMEOUT) {
+      Serial.println("DriveDistance: timeout");
+      break;
+    }
+    combDistance = (leftEncoder.getDistance() + rightEncoder.getDistance()) / 2.0f;
+    delay(1);
+
+  }
+  Motors_spin_left(150);
+  delay(20);
+
+  Motors_stop();
+
+  Serial.print("Drive done — dist(m): ");
+  Serial.println(combDistance, 4);
+}
+
+// ═══════════════════════════════════════════════════
+//         TURN BY ANGLE — angle in degrees
+// ═══════════════════════════════════════════════════
+//  Send "R90"  → turn right 90°
+//  Send "L180" → turn left 180°
+void turnUntilAngle(int targetAngle, bool turnRight) {
+  const float wheelDiameter_mm   = 30.0f;
+  const float wheelCircumference = 3.14159f * wheelDiameter_mm;  // mm
+  const int   encoderTicksPerRev = 1650;
+  const float wheelbase_mm       = 78.0f;
+
+  // Arc each wheel travels = angle_rad × (wheelbase / 2)
+  float arc_mm      = (targetAngle * 3.14159f / 180.0f) * (wheelbase_mm / 2.0f);
+  int   targetTicks = (int)round((arc_mm / wheelCircumference) * encoderTicksPerRev);
+
+  if (targetTicks <= 0) return;
+
+  leftEncoder.reset();
+  rightEncoder.reset();
+
+  if (turnRight) {
+    Motors_spin_left(150);
+  } else {
+    Motors_spin_right(150);
+  }
+
+  unsigned long startTime = millis();
+
+  while (abs((int)leftEncoder.getCounts()) < targetTicks-280 &&
+         abs((int)rightEncoder.getCounts()) < targetTicks) {
+    if (millis() - startTime > MOVE_TIMEOUT) {
+      Serial.println("turnUntilAngle: timeout");
+      break;
+    }
+    delay(1);  // yield — prevents starving CPU and blocking interrupts
+  }
+
+  Motors_stop();
+
+  Serial.print("Turn done — L: ");
+  Serial.print((int)leftEncoder.getCounts());
+  Serial.print(" R: ");
+  Serial.print((int)rightEncoder.getCounts());
+  Serial.print(" target: ");
+  Serial.println(targetTicks);
+}
